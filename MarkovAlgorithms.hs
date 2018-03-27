@@ -3,6 +3,7 @@ module MarkovAlgorithms where
 import Data.Text as T
 import Text.ParserCombinators.ReadP
 import Control.Applicative
+import System.Environment
 
 {-
     In theoretical computer science, a Markov algorithm is a string rewriting system
@@ -94,15 +95,17 @@ inAlphabet alphabet = satisfy $ isInAlphabet alphabet
 sLeft :: String -> ReadP String
 sLeft alphabet = do
     left <- many1 (inAlphabet alphabet) <|> string ""
-    string " ->"
+    string " ->" <|> string "->"
     return left
 
 sType :: ReadP SubsType
 sType = do
-    t <- string' ". " <|> string " "
+    t <- string' ". " <|> string " " <|> string "." <|> string ""
     case t of
         " " -> return Simple
         ". " -> return Final
+        "." -> return Final
+        "" -> return Simple
         _ -> error "Unknown Error!"
 
 sRight :: String -> ReadP String
@@ -126,3 +129,38 @@ parseSubstitution alphabet input =
         x -> case Prelude.last x of
                 (result, "") -> Just result
                 _ -> Nothing
+
+parseAlphabetAndAlgorithm :: String -> (String, Algorithm)
+parseAlphabetAndAlgorithm input =
+    case (Prelude.filter (not . Prelude.null) . Prelude.lines) input of
+        [] -> error "Wrong input"
+        (x:[]) -> error "Wrong input"
+        (alphabet:algorithm) -> (alphabet, parseAlgorithm alphabet algorithm)
+    where
+        parseAlgorithm :: String -> [String] -> Algorithm
+        parseAlgorithm _ [] = []
+        parseAlgorithm alphabet (x:xs) =
+            case parseSubstitution alphabet x of
+                Just s -> s : parseAlgorithm alphabet xs
+                Nothing -> error "Wrong input"
+
+main = do
+    (filename:mode:_) <- getArgs
+    (alphabet, algorithm) <- fmap parseAlphabetAndAlgorithm $ readFile filename
+    putStrLn $ "Alphabet = {" ++ alphabet ++ "}"
+    -- print algorithm
+    loop algorithm mode
+    where
+        loop algorithm mode = do
+            putStrLn $ "Input: "
+            word <- getLine
+            if word == "EXIT"
+                then return ()
+                else do
+                    case mode of
+                        "res" -> putStrLn $ "Result = " ++
+                                    algorithmResult algorithm word
+                        "all" -> putStr "Result = " >>
+                            print (applyAlgorithmStr algorithm word)
+                        _ -> error "Wrong mode"
+                    loop algorithm mode
