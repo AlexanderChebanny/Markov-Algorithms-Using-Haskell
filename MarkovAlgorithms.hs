@@ -1,6 +1,7 @@
 module MarkovAlgorithms where
 
-import Data.Text as T
+import Data.Text as T (Text, pack, unpack, length, null, drop, append, breakOn)
+import Data.Char
 import Text.ParserCombinators.ReadP
 import Control.Applicative
 import System.Environment
@@ -56,22 +57,22 @@ step (x@(Sub _ _ t):xs) str =
 
 -- Applies Markov Algorithm to the string.
 applyAlgorithm :: Algorithm -> Text -> [Text]
-applyAlgorithm alg string = string : helper string False
+applyAlgorithm alg string = string : helper string -- False
     where
-    helper str f =
+    helper str =
         case step alg str of
-            Continue s -> s : helper s True
+            Continue s -> s : helper s
             Fin s -> [s]
-            Inapplicable s -> if f then []
-                              else [s]
+            Inapplicable s -> []
+            {- if f then [] else [s] -}
 
 -- Additional version
 applyAlgorithmStr :: Algorithm -> String -> [String]
 applyAlgorithmStr alg string =
-    Prelude.map unpack (applyAlgorithm alg (pack string))
+    map unpack (applyAlgorithm alg (pack string))
 
 algorithmResult :: Algorithm -> String -> String
-algorithmResult = \alg -> Prelude.last . applyAlgorithmStr alg
+algorithmResult = \alg -> last . applyAlgorithmStr alg
 
 -- Unary Integer Division Markov Algorithm
 divisionAlg = [Sub (pack "*11") (pack "1*") Simple, Sub (pack "*1") (pack "#1") Final,
@@ -87,7 +88,7 @@ string' :: String -> ReadP String
 string' = traverse (satisfy . (==))
 
 isInAlphabet :: String -> Char -> Bool
-isInAlphabet alphabet char = Prelude.any (==char) alphabet
+isInAlphabet alphabet char = any (==char) alphabet
 
 inAlphabet :: String -> ReadP Char
 inAlphabet alphabet = satisfy $ isInAlphabet alphabet
@@ -108,31 +109,36 @@ sType = do
         "" -> return Simple
         _ -> error "Unknown Error!"
 
-sRight :: String -> ReadP String
-sRight alphabet = many1 (inAlphabet alphabet) <|> string ""
+alphabetWord :: String -> ReadP String
+alphabetWord alphabet = many1 (inAlphabet alphabet) <|> string ""
 
-{- ???????????????????????????????????????????????
-    *MarkovAlgorithms> readP_to_S (substitutionParser "ab") "ab ->. ba"
-    [(ab ->. b,"a"),(ab ->. ba,"")]
--}
+-- Additional function for main
+isAlphabetWord :: String -> String -> Bool
+isAlphabetWord alphabet word =
+    case readP_to_S (alphabetWord alphabet) word of
+        [] -> False
+        x -> case last x of
+                (_, "") -> True
+                _ -> False
+
 substitutionParser :: String -> ReadP Substitution
 substitutionParser alphabet = do
     left <- sLeft alphabet
     t <- sType
-    right <- sRight alphabet
+    right <- alphabetWord alphabet
     return $ Sub (pack left) (pack right) t
 
 parseSubstitution :: String -> String -> Maybe Substitution
 parseSubstitution alphabet input =
     case readP_to_S (substitutionParser alphabet) input of
         [] -> Nothing
-        x -> case Prelude.last x of
+        x -> case last x of
                 (result, "") -> Just result
                 _ -> Nothing
 
 parseAlphabetAndAlgorithm :: String -> (String, Algorithm)
 parseAlphabetAndAlgorithm input =
-    case (Prelude.filter (not . Prelude.null) . Prelude.lines) input of
+    case (filter (not . Prelude.null) . lines) input of
         [] -> error "Wrong input"
         (x:[]) -> error "Wrong input"
         (alphabet:algorithm) -> (alphabet, parseAlgorithm alphabet algorithm)
@@ -144,23 +150,26 @@ parseAlphabetAndAlgorithm input =
                 Just s -> s : parseAlgorithm alphabet xs
                 Nothing -> error "Wrong input"
 
+main :: IO()
 main = do
     (filename:mode:_) <- getArgs
     (alphabet, algorithm) <- fmap parseAlphabetAndAlgorithm $ readFile filename
-    putStrLn $ "Alphabet = {" ++ alphabet ++ "}"
+    putStrLn $ "Алфавит = {" ++ alphabet ++ "}"
     -- print algorithm
-    loop algorithm mode
+    loop algorithm mode alphabet
     where
-        loop algorithm mode = do
-            putStrLn $ "Input: "
+        loop algorithm mode alphabet = do
+            -- putStrLn $ "Input: "
             word <- getLine
-            if word == "EXIT"
+            if (map toLower word) == "exit"
                 then return ()
                 else do
-                    case mode of
-                        "res" -> putStrLn $ "Result = " ++
+                    case (mode, isAlphabetWord alphabet word) of
+                        (_, False) -> putStrLn $
+                            "Строка не является словом алфавита, повторите ввод"
+                        ("res", _) -> putStrLn $ "Result = " ++
                                     algorithmResult algorithm word
-                        "all" -> putStr "Result = " >>
+                        ("comp",_) -> putStr "Result = " >>
                             print (applyAlgorithmStr algorithm word)
                         _ -> error "Wrong mode"
-                    loop algorithm mode
+                    loop algorithm mode alphabet
