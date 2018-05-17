@@ -1,0 +1,16 @@
+ab
+ab*AB
+*a -> A
+*b -> B
+Aa -> aA
+Ab -> bA
+Ba -> aB
+Bb ->bB
+aA ->
+bB ->
+aB ->.a
+bA->. b
+A ->.
+B ->.
+* ->.
+-> *

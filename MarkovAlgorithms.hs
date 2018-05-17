@@ -136,26 +136,29 @@ parseSubstitution alphabet input =
                 (result, "") -> Just result
                 _ -> Nothing
 
-parseAlphabetAndAlgorithm :: String -> (String, Algorithm)
+parseAlphabetAndAlgorithm :: String -> (String, String, Algorithm)
 parseAlphabetAndAlgorithm input =
     case (filter (not . Prelude.null) . lines) input of
         [] -> error "Wrong input"
-        (x:[]) -> error "Wrong input"
-        (alphabet:algorithm) -> (alphabet, parseAlgorithm alphabet algorithm)
+        (_:[]) -> error "Wrong input"
+        (_:_:[]) -> error "Wrong input"
+        (alphabet:alphabet':algorithm) -> (alphabet, alphabet', parseAlgorithm alphabet' algorithm)
     where
         parseAlgorithm :: String -> [String] -> Algorithm
         parseAlgorithm _ [] = []
-        parseAlgorithm alphabet (x:xs) =
-            case parseSubstitution alphabet x of
-                Just s -> s : parseAlgorithm alphabet xs
+        parseAlgorithm alphabet' (x:xs) =
+            case parseSubstitution alphabet' x of
+                Just s -> s : parseAlgorithm alphabet' xs
                 Nothing -> error "Wrong input"
 
 main :: IO()
 main = do
     (filename:mode:_) <- getArgs
-    (alphabet, algorithm) <- fmap parseAlphabetAndAlgorithm $ readFile filename
-    putStrLn $ "Алфавит = {" ++ alphabet ++ "}"
-    -- print algorithm
+    (alphabet, alphabet', algorithm) <- fmap parseAlphabetAndAlgorithm $ readFile filename
+    putStrLn $ "Алфавит = {" ++ alphabet ++ "}" ++
+        if alphabet /= alphabet'
+            then " Расширение алфавита = {" ++ alphabet' ++ "}"
+            else ""
     loop algorithm mode alphabet
     where
         loop algorithm mode alphabet = do
